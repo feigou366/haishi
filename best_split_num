@@ -1,0 +1,121 @@
+import math
+class Customcutter(TransformerMixin):
+    def __init__(self,cols,bins):
+        self.cols = cols
+        self.bins = bins
+        
+    def transform(self,df):
+        global df_cc
+        df_cc = pd.cut(df[self.cols],bins=self.bins)
+        return df_cc
+    
+    def fit(self,*_):
+        return self
+    
+def cal_median_list(df,var):
+    '''
+    param df:给定的数据集
+    param var:相应的变量
+    return :变量的中值列表
+    '''
+    var_unique_l = list(pd.DataFrame(df[var].unique()).dropna()[0])
+    median_v_list = []
+    for i in range(len(var_unique_l)-1):
+        median_value = (var_unique_l[i]+var_unique_l[i+1])/2
+        median_v_list.append(median_value)
+        median_v_list.sort()
+    return median_v_list
+#获取单个最优切分点
+def Best_split_bin(df,num_list,min_sample,var):
+    '''
+    param df:给定的数据集
+    return :最优切分点
+    '''
+    v_split = []
+    #for var in num_list:
+    median_value_l = cal_median_list(df,var)
+    gini_origin = 1 - np.square(df.lable.sum()/df.lable.count()) - \
+                           np.square((df.lable.count()-df.lable.sum())/df.lable.count())
+    best_gini = 0;best_split_point = 0;best_gini_gain = 0
+    step = math.ceil(len(median_value_l)/20)
+    if step==0:
+        step += 1
+    for i in range(0,len(median_value_l),step):
+        left = df[df[var]<median_value_l[i]][var]
+        right = df[df[var]>median_value_l[i]][var]
+        if left.shape[0]<min_sample or right.shape[0]<min_sample:
+            continue
+        left_ratio = left.shape[0]/df.shape[0]
+        right_ratio = right.shape[0]/df.shape[0]
+        left_sum = df.ix[list(left.index),:]['lable'].sum()
+        left_count = df.ix[list(left.index),:]['lable'].count()
+        gini_left = 1 - np.square(left_sum/left_count) \
+                      - np.square((left_count-left_sum)/left_count)
+        right_sum = df.ix[list(right.index),:]['lable'].sum()
+        right_count = df.ix[list(right.index),:]['lable'].count()
+        gini_right = 1 - np.square(right_sum/right_count) - np.square((right_count-right_sum)/right_count)
+        gini = left_ratio*gini_left + right_ratio*gini_right
+        gini_gain = gini_origin - gini
+        #print(gini_gain)
+        if gini_gain > best_gini_gain:
+            best_gini_gain = gini_gain
+            gini_origin = gini
+            best_split_point = median_value_l[i]
+        else:
+            continue
+    v_split.append([var,best_split_point])
+    #print(best_split_point)
+    return best_split_point
+
+#获取最优切分点列表
+def GetBestSplitList(df,num_list,min_sample,var):
+    global best_split_list
+    best_split_list = []
+    best_point = Best_split_bin(df,num_list,min_sample,var)
+    best_split_list.append(best_point)
+    left_0 = df[df[var]<best_point][var]
+    right_0 = df[df[var]>best_point][var]
+    #print(left_0.index)
+    #print(right_0.index)
+    for i in range(5):
+        if left_0.shape[0]>3*min_sample:
+            best_point = Best_split_bin(df.iloc[left_0.index,:],num_list,min_sample,var)
+            best_split_list.append(best_point)
+            left_0 = df[df[var]<best_point][var]
+            right_1 = df[df[var]>best_point][var]
+            if right_1.shape[0]>3*min_sample:
+                best_point = Best_split_bin(df.iloc[right_1.index,:],num_list,min_sample,var)
+                best_split_list.append(best_point)
+                right_1 = df[df[var]>best_point][var]
+            #print('a')
+        else:
+            None
+        if right_0.shape[0]>3*min_sample:
+            best_point = Best_split_bin(df.iloc[right_0.index,:],num_list,min_sample,var)
+            best_split_list.append(best_point)
+            right_0 = df[df[var]>best_point][var]
+            left_1 = df[df[var]<best_point][var]
+            if left_1.shape[0]>3*min_sample:
+                best_point = Best_split_bin(df.iloc[left_1.index,:],num_list,min_sample,var)
+                best_split_list.append(best_point)  
+                left_1 = df[df[var]<best_point][var]
+            #print('b')
+        else:
+            None
+        #print(best_split_list)
+        return best_split_list
+df_cut_num = pd.DataFrame([None]*df_num_poly.shape[0])
+for var in df_num_poly.columns:
+    binl = GetBestSplitList(pd.concat([df_num_poly,data.lable],axis=1),numeric_type_var,data.shape[0]*0.05,var)
+    binl.sort()
+    if 0 not in binl:
+        binl = [float('-inf')] + [0] + binl + [float('inf')]
+    else:
+        binl = [float('-inf')] + binl + [float('inf')]
+    print(binl)
+    cc = Customcutter(cols = var,bins = binl)
+    cc.fit_transform(pd.concat([df_num_poly,data.lable],axis=1))
+#Best_split_bin(data,numeric_type_var,data.shape[0]*0.05,'carPrice')
+        
+                
+    
