@@ -1,0 +1,54 @@
+#测评中开放了A,B,C通道，经过分析，可以先对B通道进行预测，抽取训练数据中的2019-01-05、2019-01-06、2019-01-12、2019-01-13、2019-01-19、\
+#2019-01-20、2019-01-26的数据
+import pandas as pd
+import numpy as np
+import datetime
+
+class CityAIDataPre():
+    
+    def readData(self,file):
+        global df
+        df = pd.read_csv('D:/cityAI/Metro_train/'+file)
+        self.df = df
+        print(df.shape)
+        
+    def t_interFun(self,i,str1):
+        global t_inter5
+        locals()['t_inter'+str(i)] = [(datetime.datetime.strptime(str1,"%Y-%m-%d %H:%M:%S")+ \
+                     datetime.timedelta(minutes=i * 10)).strftime("%Y-%m-%d %H:%M:%S") for i in range(0,145)]
+#         self.locals()['t_inter'+str(i)]=locals()['t_inter'+str(i)]
+        return locals()['t_inter'+str(i)]
+
+    def tInterDeriv(self,pa1,pa2):
+        for i in range(len(pa1)-1):
+            pa2.loc[(pd.to_datetime(pa2['time'])>pd.to_datetime(pa1[i])) \
+                            &(pd.to_datetime(pa2['time'])<=pd.to_datetime(pa1[i+1])),'time_inter'] = \
+            '['+pa1[i][11:]+'-'+pa1[i+1][11:]+']'
+            
+    def RecordSumByInter(self,df2,i):
+        locals()['record01_0'+str(i)+'G'] = df2.groupby(['status','time_inter'])['status'].count().unstack('status').fillna(0).sort_values(by='time_inter')
+        locals()['record01_0'+str(i)+'G']['sum'] = locals()['record01_0'+str(i)+'G'][0]+locals()['record01_0'+str(i)+'G'][1]
+#         self.locals()['record01_0'+str(i)+'G']=locals()['record01_0'+str(i)+'G']
+        return locals()['record01_0'+str(i)+'G']
+    
+    def RSBI_plot(self,df3,color_v):
+        return df3['sum'].plot(kind='line',color=color_v)
+
+
+# caip = CityAIDataPre()
+# caip.readData('record_2019-01-12.csv')
+# caip.tInterDeriv(caip.t_interFun(12,'2019-01-12 00:00:00'),df)
+# caip.RSBI_plot(caip.RecordSumByInter(df,12))
+
+tl = [5,6,12,13,19,20]
+cl = ['r','g','b','y','k','DarkBlue','LightGreen']
+for i,t in enumerate(tl):
+    caip = CityAIDataPre()
+    if t==5 or t==6:
+        caip.readData('record_2019-01-0'+str(t)+'.csv')
+    else:
+        caip.readData('record_2019-01-'+str(t)+'.csv')
+    caip.tInterDeriv(caip.t_interFun(t,'2019-01-'+str(t)+' '+ '00:00:00'),df)
+    caip.RSBI_plot(caip.RecordSumByInter(df,t),cl[i])
+    
+ 
